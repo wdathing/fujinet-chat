@@ -1,0 +1,99 @@
+TARGET_EXEC = chat
+VERSION = 1.0.0
+TARGET = chat
+
+
+BUILD_DIR ?= ./build
+SRC_DIRS ?= ./src
+
+CC=cmoc
+ASM=lwasm
+
+#SRCS := $(shell find $(SRC_DIRS) -name *.c) $(shell find $(SRC_DIRS)/coco -name *.s) 
+SRCS := $(shell ls $(SRC_DIRS)/*.c) $(shell find $(SRC_DIRS)/coco -name *.c)
+OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
+DEPS := $(OBJS:.o=.d)
+
+
+# this downloads fujinet-lib and populates FUJINET_LIB_VERSION_DIR and FUJINET_LIB_NAME
+include fujinet-lib.mk
+
+#FUJINET_LIB = fujinet
+
+LIBS = \
+	-L$(FUJINET_LIB_VERSION_DIR) -l:$(FUJINET_LIB_NAME) 
+
+
+PACKAGE = CHAT
+VERSION = 0.1.00
+TARGET = coco
+
+
+CFLAGS= \
+			--$(TARGET) \
+			--intdir ./intermediates \
+			--stack-space=512 \
+			-fomit-frame-pointer \
+			-DDEBUG \
+			-I .\
+			-I $(FUJINET_LIB_DIR) \
+			-DVERSION=\"$(VERSION)\" \
+			-O2
+
+#			--check-null \
+#			-D_CMOC_CHECK_STACK_OVERFLOW_ --check-stack\
+
+
+LDFLAGS= 			--$(TARGET) \
+	-o$(TARGET_EXEC).bin
+
+
+#LDFLAGS_TEST= 			--$(TARGET) \
+#	-otestgame.bin
+
+INC_DIRS := $(shell find $(SRC_DIRS) -type d)
+INC_FLAGS := $(addprefix -I,$(INC_DIRS))
+
+OTHER_APPS := \
+~/Workspace/bgraph-0.1.8/bgraph.bin \
+~/Workspace/bgraph-0.1.8/cmdemo.bin \
+~/Workspace/bgraph-0.1.8/cc3demo.bin \
+~/Workspace/bgraph-0.1.8/shapes.bin \
+~/Workspace/bgraph-0.1.8/testclip.bin \
+~/Workspace/cardgame/cardgame.bin \
+~/Workspace/color8-0.1.14/color8.bin
+
+
+
+
+
+$(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) .get_fujinet_lib 
+	$(CC) $(LDFLAGS) $(OBJS) $(LIBS)
+	$(RM) $(TARGET_EXEC) $(TARGET_EXEC).dsk
+	decb dskini $(TARGET_EXEC).dsk
+	writecocofile $(TARGET_EXEC).dsk $(TARGET_EXEC).bin 
+	writecocofile $(TARGET_EXEC).dsk ~/iss.bin 
+#	$(foreach path,$(OTHER_APPS),writecocofile $(TARGET_EXEC).dsk $(path) ;) 
+	cp $(TARGET_EXEC).dsk ~/tnfs/
+	cp $(TARGET_EXEC).dsk ~/Workspace/fujinet-firmware/build/dist/SD/
+
+# c source
+$(BUILD_DIR)/%.c.o: %.c
+	$(MKDIR_P) intermediates
+	$(MKDIR_P) $(dir $@)
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+# assy source
+$(BUILD_DIR)/%.s.o: %.s
+	$(MKDIR_P) $(dir $@)
+	$(ASM) $(ASFLAGS) -fobj --output=$@ $<
+
+.PHONY: clean
+
+clean:
+	$(RM) -r $(TARGET_EXEC)*
+	$(RM) -r $(BUILD_DIR)*
+
+-include $(DEPS)
+
+MKDIR_P ?= mkdir -p
