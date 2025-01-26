@@ -18,7 +18,11 @@
 #include "fujinet-network.h"
 
 // Store default server endpoint in case lobby did not set app key
-unsigned char serverEndpoint[50] = "N:TCP://136.53.106.114:21000/"; // "N: for apple, but not C64"
+unsigned char server1[50] = "N:TCP://tnfstest.athing.dev:21000/"; // "N: for apple, but not C64"
+unsigned char server2[50] = "N:TCP://192.168.241.32:21000/"; // "N: for apple, but not C64"
+unsigned char *pszServer;
+
+
 
 unsigned char query[50] = "";
 
@@ -52,8 +56,8 @@ bool IsValidChar(unsigned char c)
 void
 SendCommand(unsigned char *cmd)
 {
-  network_write(serverEndpoint, cmd, strlen((const char *)cmd));
-  network_write(serverEndpoint, (unsigned char*)"\n", 1);
+  network_write(pszServer, cmd, strlen((const char *)cmd));
+  network_write(pszServer, (unsigned char*)"\n", 1);
 }
 
 
@@ -75,12 +79,22 @@ void main(void)
 
   memset(send,0,sizeof(send));
 
-#ifdef _CMOC_VERSION_
-  network_init();
-  network_open(serverEndpoint,12,0);
-  
-#endif
 
+  network_init();
+  pszServer = server1;
+  result = network_open(pszServer,12,0);
+  if (result)
+  {
+    printf("COULDN'T REACH SERVER1, TRYING SERVER2\n");
+    pszServer = server2;
+    result = network_open(pszServer,12,0);
+    if (result)
+    {
+      printf("COULDN'T REACH SERVER2\n");
+      return -1;
+    }
+  }
+  
   printf("USERNAME? \n");
   s = readline();
 
@@ -105,28 +119,27 @@ void main(void)
       }
       else
       {
-        network_write(serverEndpoint, (unsigned char *)"#main ", 6);
-        network_write(serverEndpoint, s, strlen((const char *)s));
-        network_write(serverEndpoint, (unsigned char*)"\n", 1);
+        network_write(pszServer, (unsigned char *)"#main ", 6);
+        network_write(pszServer, s, strlen((const char *)s));
+        network_write(pszServer, (unsigned char*)"\n", 1);
         printf("\n");
       }
     }
 
-
     if ((reducePollInterval++)%50==0)
     {
       memset(recv, 0, sizeof(recv));
-      result = network_read_nb(serverEndpoint, recv, sizeof(recv));
+      result = network_read_nb(pszServer, recv, sizeof(recv));
       if (result>0)
       {
-        printf("%s\n", recv);
-        printf("%s", send);
+        if (strlen(recv>7))
+        printf("%s\n", recv+7);  // save screen space by hiding channel name
       }
     }
   }
 
 #ifdef _CMOC_VERSION_
-  network_close(serverEndpoint);
+  network_close(pszServer);
   return 0;
 #endif /* CMOC_VERSION_  */
 }
